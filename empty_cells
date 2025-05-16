@@ -1,0 +1,39 @@
+#!/bin/bash
+
+if [ "$#" -ne 2 ]; then
+  echo "Usage: $0 <filename> <delimiter>"
+  exit 1
+fi
+
+file="$1"
+delimiter="$2"
+
+# Read header and split column names
+read -r header < "$file"
+IFS="$delimiter" read -ra columns <<< "$header"
+num_cols=${#columns[@]}
+
+# Initialize counts
+declare -a empty_counts
+for ((i = 0; i < num_cols; i++)); do
+  empty_counts[i]=0
+done
+
+# Read file line-by-line (skip header)
+tail -n +2 "$file" | while IFS="$delimiter" read -ra fields; do
+  for ((i = 0; i < num_cols; i++)); do
+    field=$(echo "${fields[i]}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    if [[ -z "$field" ]]; then
+      ((empty_counts[i]++))
+    fi
+  done
+done > /tmp/.ecounts$$
+
+# Print counts after loop
+for ((i = 0; i < num_cols; i++)); do
+  count=$(sed -n "$((i+1))p" /tmp/.ecounts$$)
+  echo "${columns[i]}: ${count:-0}"
+done
+
+# Clean up temp file
+rm /tmp/.ecounts$$
