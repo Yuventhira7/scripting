@@ -1,79 +1,74 @@
 #!/bin/bash
 
-# Check for exactly one argument (cleaned .tsv file)
+input_file="$1"
+
+# Check if the correct number of arguments 
 if [ "$#" -ne 1 ]; then
-  echo "Usage: $0 <cleaned_file.tsv>"
+  echo "Usage: $0 <cleaned_data_file>"
   exit 1
 fi
 
-file="$1"
-
-# -----------------------------
-# Function: Most Popular Mechanic
-# -----------------------------
-most_popular_mechanic() {
-  cut -f13 "$file" | tail -n +2 | \
-  tr ',.' '\n' | sed 's/^ *//' | sed '/^$/d' | \
-  sort | uniq -c | sort -nr | head -n1 | \
-  awk '{print "The most popular game mechanics is " substr($0, index($0,$2)) " found in " $1 " games"}'
-}
-
-# -----------------------------
-# Function: Most Popular Domain
-# -----------------------------
-most_popular_domain() {
-  cut -f14 "$file" | tail -n +2 | \
-  tr ',.' '\n' | sed 's/^ *//' | sed '/^$/d' | \
-  sort | uniq -c | sort -nr | head -n1 | \
-  awk '{print "The most game domain is " substr($0, index($0,$2)) " found in " $1 " games"}'
-}
-
-# -----------------------------
-# Function: Correlation (Year Published vs Rating)
-# -----------------------------
-correlation_year_rating() {
-  awk -F"\t" '
-    NR > 1 && $3 != "" && $9 != "" {
-      x = $3; y = $9;
-      sx += x; sy += y;
-      sxy += x * y;
-      sx2 += x * x;
-      sy2 += y * y;
-      n++
+# Calculate Most Popular Domain and Mechanics
+awk -F'\t' '
+  NR > 1 {
+    # Split and count domains
+    num_domains = split($14, domains, ", ")
+    for (i = 1; i <= num_domains; i++) {
+      domain = domains[i]
+      sub(/^[ \t]+/, "", domain) # remove leading whitespace
+      sub(/[ \t]+$/, "", domain) # remove trailing whitespace
+      domain_counts[domain]++
+      if (domain_counts[domain] > max_domain_count) {
+        max_domain_count = domain_counts[domain]
+        most_popular_domain = domain # update most popular domain
+      }
     }
-    END {
-      numerator = n * sxy - sx * sy;
-      denominator = sqrt((n * sx2 - sx^2) * (n * sy2 - sy^2));
-      r = numerator / denominator;
-      printf "The correlation between the year of publication and the average rating is %.3f\n", r;
-    }
-  ' "$file"
-}
 
-# -----------------------------
-# Function: Correlation (Complexity vs Rating)
-# -----------------------------
-correlation_complexity_rating() {
-  awk -F"\t" '
-    NR > 1 && $11 != "" && $9 != "" {
-      x = $11; y = $9;
-      sx += x; sy += y;
-      sxy += x * y;
-      sx2 += x * x;
-      sy2 += y * y;
-      n++
+    # Split and count mechanics
+    num_mechanics = split($13, mechanics, ", ")
+    for (i = 1; i <= num_mechanics; i++) {
+      mechanic = mechanics[i]
+      sub(/^[ \t]+/, "", mechanic) # remove leading whitespace
+      sub(/[ \t]+$/, "", mechanic) # remove trailing whitespace
+      mechanic_counts[mechanic]++
+      if (mechanic_counts[mechanic] > max_mechanic_count) {
+        max_mechanic_count = mechanic_counts[mechanic]
+        most_popular_mechanic = mechanic 
+      }
     }
-    END {
-      numerator = n * sxy - sx * sy;
-      denominator = sqrt((n * sx2 - sx^2) * (n * sy2 - sy^2));
-      r = numerator / denominator;
-      printf "The correlation between the complexity of a game and its average rating is %.3f\n", r;
-    }
-  ' "$file"
-}
 
-# --- Run all steps ---
-most_popular_mechanic
-most_popular_domain
-correlation_year_rating
-correlation_complexity_rating
+    # correlation calculations
+    year_rating_sum += $3 * $9  # Sum of (Year * Rating Average)
+    year_sum += $3 # Sum of Year
+    rating_sum += $9  # Sum of Rating Average
+    year_sq_sum += $3 * $3  # Sum of Year squared
+    rating_sq_sum += $9 * $9 # Sum of Rating Average squared
+    n++
+
+    complexity_rating_sum += $11 * $9 # Sum of (Complexity Average * Rating Average)
+    complexity_sum += $11  # Sum of Complexity Average
+    complexity_sq_sum += $11 * $11 # Sum of complexity average
+  }
+  END {
+    # Calculate Pearson Correlation for Year and Rating 
+    year_avg = year_sum / n
+    rating_avg = rating_sum / n
+    numerator_yr = (n * year_rating_sum - year_sum * rating_sum)
+    denominator_yr_part1 = (n * year_sq_sum - year_sum * year_sum)
+    denominator_yr_part2 = (n * rating_sq_sum - rating_sum * rating_sum)
+    correlation_yr = numerator_yr / sqrt(denominator_yr_part1 * denominator_yr_part2)
+
+    # Calculate Pearson Correlation for Complexity and Rating 
+    complexity_avg = complexity_sum / n
+    numerator_cr = (n * complexity_rating_sum - complexity_sum * rating_sum)
+    denominator_cr_part1 = (n * complexity_sq_sum - complexity_sum * complexity_sum)
+    denominator_cr_part2 = (n * rating_sq_sum - rating_sum * rating_sum)
+    correlation_cr = numerator_cr / sqrt(denominator_cr_part1 * denominator_cr_part2)
+
+    # Print result in expected format
+    printf "The most popular game mechanics is %s found in %d games\n", most_popular_mechanic, max_mechanic_count
+    printf "The most game domain is %s found in %d games\n", most_popular_domain, max_domain_count
+    printf "\nThe correlation between the year of publication and the average rating is %.3f\n", correlation_yr
+    printf "The correlation between the complexity of a game and its average rating is %.3f\n", correlation_cr
+  }
+' "$input_file"
