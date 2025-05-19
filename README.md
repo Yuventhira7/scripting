@@ -6,7 +6,7 @@ This project contains three shell scripts (`empty_cells`, `preprocess`, and `ana
 
 ### `empty_cells`
 
-This script takes a text file  and a separator character as input. It outputs a list of the column titles (from the first line) along with the number of empty cells found in each column.
+This script takes a text file  and a separator character as input. It outputs a list of the column titles (headers) along with the number of empty cells found in each column.
 
 **Usage:**
 
