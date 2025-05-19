@@ -37,7 +37,7 @@ awk -F'\t' '
       }
     }
 
-    # correlation calculations
+    # calculate the correlation
     year_rating_sum += $3 * $9  # Sum of (Year * Rating Average)
     year_sum += $3 # Sum of Year
     rating_sum += $9  # Sum of Rating Average
