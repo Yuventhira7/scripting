@@ -1,39 +1,34 @@
 #!/bin/bash
 
+# Check for two arguments
 if [ "$#" -ne 2 ]; then
-  echo "Usage: $0 <filename> <delimiter>"
+  echo "Usage: $0 <input_file> <separator>"
   exit 1
 fi
 
-file="$1"
-delimiter="$2"
+input_file="$1" # data file
+separator="$2"  # separator ";"
 
-# Read header and split column names
-read -r header < "$file"
-IFS="$delimiter" read -ra columns <<< "$header"
-num_cols=${#columns[@]}
-
-# Initialize counts
-declare -a empty_counts
-for ((i = 0; i < num_cols; i++)); do
-  empty_counts[i]=0
-done
-
-# Read file line-by-line (skip header)
-tail -n +2 "$file" | while IFS="$delimiter" read -ra fields; do
-  for ((i = 0; i < num_cols; i++)); do
-    field=$(echo "${fields[i]}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-    if [[ -z "$field" ]]; then
-      ((empty_counts[i]++))
-    fi
-  done
-done > /tmp/.ecounts$$
-
-# Print counts after loop
-for ((i = 0; i < num_cols; i++)); do
-  count=$(sed -n "$((i+1))p" /tmp/.ecounts$$)
-  echo "${columns[i]}: ${count:-0}"
-done
-
-# Clean up temp file
-rm /tmp/.ecounts$$
+# Use awk to process the file
+awk -v FS="$separator" '
+  NR == 1 { # Process header line
+    for (i = 1; i <= NF; i++) {
+      columns[i] = $i
+      sub("\r$", "", columns[i])  # Remove trailing carriage return values
+      empty_counts[i] = 0
+    }
+  }
+  NR > 1 { # Process data lines
+    for (i = 1; i <= NF; i++) {
+      gsub(/[[:space:]]+/, "", $i);  # Remove ALL whitespace
+      if (length($i) == 0) {
+        empty_counts[i]++
+      }
+    }
+  }
+  END { # Print results
+    for (i = 1; i <= length(columns); i++) {
+      print columns[i] ": " empty_counts[i]
+    }
+  }
+' "$input_file" # pass value of input file 
