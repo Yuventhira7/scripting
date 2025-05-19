@@ -28,7 +28,7 @@ max_id=$(awk -F"\t" '
       max = $1
     }
   }
-  END { print max + 0 } # Ensure numeric output, handle empty input
+  END { print max + 0 } # Ensure numeric output and handle empty input
 ' "$cleaned")
 
 # prprocesss the cleaned data 
@@ -36,7 +36,7 @@ awk -v max_id="$max_id" '
   BEGIN { FS = OFS = "\t"; id = max_id + 1 }
   NR == 1 { print; next }
   {
-    gsub(/^[ \t]+|[ \t]+$/, "", $1); # Trim whitespace from ID
+    gsub(/^[ \t]+|[ \t]+$/, "", $1); # Trim whitespace 
     if ($1 == "") {
       $1 = id++
     }
@@ -47,4 +47,4 @@ awk -v max_id="$max_id" '
 # Clean up the temporary file 
 rm "$cleaned"
 
-echo "Preprocessed data saved to $output_file"
+echo "Preprocessed file saved to $output_file"
